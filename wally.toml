@@ -1,7 +1,9 @@
 [package]
 name = "pysephwasntavailable/remotepacketsizecounter"
 version = "1.0.0"
+license = "MIT"
+authors = ["PysephWasntAvailable"]
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
-
-[dependencies]
+include = ["src", "wally.toml", "wally.lock", "default.project.json", "LICENSE"]
+exclude = ["**"]

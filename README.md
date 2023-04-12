@@ -25,5 +25,5 @@ CountPacketSize(true, "Hello") -- 8
 CountPacketSize(false, "Hello") -- 17
 
 CountPacketSize(true, CFrame.new()) -- 14
-CountPacketSize(false, CFrame.Angles(0, 10, 0)) -- 22
+CountPacketSize(true, CFrame.Angles(0, 10, 0)) -- 22
 ```

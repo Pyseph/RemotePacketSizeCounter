@@ -1,0 +1,6 @@
+{
+	"name": "RemotePacketSizeCounter",
+	"tree": {
+		"$path": "src"
+	}
+}

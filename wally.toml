@@ -1,5 +1,5 @@
 [package]
-name = "PysephWasntAvailable/remotepacketsizecounter"
+name = "pysephwasntavailable/remotepacketsizecounter"
 version = "1.0.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"

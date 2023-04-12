@@ -6,5 +6,5 @@ license = "MIT"
 authors = ["PysephWasntAvailable"]
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
-include = ["src", "wally.toml", "wally.lock", "default.project.json", "LICENSE"]
+include = ["src",  "src/**", "wally.toml", "wally.lock", "default.project.json", "LICENSE"]
 exclude = ["**"]

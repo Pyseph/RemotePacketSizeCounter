@@ -1,6 +1,6 @@
 [package]
 name = "pysephwasntavailable/remotepacketsizecounter"
-version = "1.0.4"
+version = "2.0.0"
 
 license = "MIT"
 authors = ["PysephWasntAvailable"]

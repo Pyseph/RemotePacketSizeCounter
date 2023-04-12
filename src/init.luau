@@ -128,15 +128,26 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 	end
 end
 
-local function GetRemotePacketSize(IgnoreRemoteOffset: boolean, ...: any): number
-	local Total = IgnoreRemoteOffset and 0 or REMOTE_OVERHEAD
+local PacketSizeCounter = {}
+PacketSizeCounter.RemoteOverhead = REMOTE_OVERHEAD
+PacketSizeCounter.TypeOverhead = BYTE_OVERHEAD
+
+function PacketSizeCounter.GetPacketSize(CounterData: {
+	IgnoreRemoteOffset: boolean?,
+	PacketData: {any}
+}): number
+	local Total = CounterData.IgnoreRemoteOffset and 0 or REMOTE_OVERHEAD
 	local AlreadyTraversed = {}
 
-	for _, Data in ipairs({...}) do
+	for _, Data in ipairs(CounterData.PacketData) do
 		Total += GetDataByteSize(Data, AlreadyTraversed) + BYTE_OVERHEAD
 	end
 
 	return Total
 end
+function PacketSizeCounter.GetDataByteSize(Data: any): number
+	return GetDataByteSize(Data, {})
+end
 
-return GetRemotePacketSize
+table.freeze(PacketSizeCounter)
+return PacketSizeCounter

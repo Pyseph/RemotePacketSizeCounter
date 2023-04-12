@@ -8,22 +8,44 @@ https://wally.run/package/pysephwasntavailable/remotepacketsizecounter
 
 ## Usage
 ```lua
-local CountPacketSize = require(Packages.RemotePacketSizeCounter)
+local PacketSizeCounter = require(Packages.RemotePacketSizeCounter)
 
-CountPacketSize(
-    true, -- Whether to ignore remote size overhead
-    ... -- Remote packet data, can be any number of arguments of (almost) any type
+-- Use the GetDataByteSize function to get the size of a single argument from a remote
+PacketSizeCounter.GetDataByteSize(Value)
+
+-- Use the GetPacketSize function to get the size of all arguments from a remote
+PacketSizeCounter.GetPacketSize(
+	IgnoreRemoteOffset = true, -- Whether to ignore remote size overhead
+	PacketData = {...} -- Array of remote packet data, supports most types
 )
 ```
 
 ## Example
 ```lua
-CountPacketSize(true, 1) -- 9
-CountPacketSize(true, 912038912098) -- 9
+PacketSizeCounter.GetPacketSize({
+	IgnoreRemoteOffset = true,
+	PacketData = {1}
+}) -- 9
+PacketSizeCounter.GetPacketSize({
+	IgnoreRemoteOffset = true,
+	PacketData = {912038912098}
+}) -- 9
 
-CountPacketSize(true, "Hello") -- 8
-CountPacketSize(false, "Hello") -- 17
+PacketSizeCounter.GetPacketSize({
+	IgnoreRemoteOffset = true,
+	PacketData = {"Hello"}
+}) -- 8
+PacketSizeCounter.GetPacketSize({
+	IgnoreRemoteOffset = false,
+	PacketData = {"Hello"}
+}) -- 17
 
-CountPacketSize(true, CFrame.new()) -- 14
-CountPacketSize(true, CFrame.Angles(0, 10, 0)) -- 22
+PacketSizeCounter.GetPacketSize({
+	IgnoreRemoteOffset = true,
+	PacketData = {CFrame.new()}
+}) -- 14
+PacketSizeCounter.GetPacketSize({
+	IgnoreRemoteOffset = true,
+	PacketData = {CFrame.Angles(0, 10, 0)}
+}) -- 22
 ```

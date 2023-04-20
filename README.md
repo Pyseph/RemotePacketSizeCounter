@@ -19,10 +19,10 @@ print(PacketSizeCounter.TypeOverhead)
 PacketSizeCounter.GetDataByteSize(Value)
 
 -- Use the GetPacketSize function to get the size of all arguments from a remote
-PacketSizeCounter.GetPacketSize(
+PacketSizeCounter.GetPacketSize({
 	IgnoreRemoteOffset = true, -- Whether to ignore remote size overhead
 	PacketData = {...} -- Array of remote packet data, supports most types
-)
+})
 ```
 
 ## Example

@@ -10,9 +10,9 @@ https://wally.run/package/pysephwasntavailable/remotepacketsizecounter
 ```lua
 local PacketSizeCounter = require(Packages.RemotePacketSizeCounter)
 
--- Use the RemoteOverhead function to get the size of the remote overhead
+-- RemoteOverhead describes the size of the remote overhead
 print(PacketSizeCounter.RemoteOverhead)
--- Use the TypeOverhead function to get the size of the overhead for a single data type
+-- TypeOverhead describes the size of the overhead for a single data type
 print(PacketSizeCounter.TypeOverhead)
 
 -- Use the GetDataByteSize function to get the size of a single argument from a remote

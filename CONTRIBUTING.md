@@ -1,4 +1,11 @@
 # Contributing
+
+## Code
+This resource uses Wally, which is installed through Aftman, to publish the code onto https://wally.run/. You may find Aftman here:
+- https://github.com/LPGhatguy/aftman
+
+After installation, Wally can be installed by running `aftman install` in the root directory of this project.
+
 ## Bug Reports & Feature Requests
 Please use the [issue tracker](https://github.com/PysephWasntAvailable/RemotePacketSizeCounter/issues) to report any bugs or file feature requests.
 

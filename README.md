@@ -54,3 +54,6 @@ PacketSizeCounter.GetPacketSize({
 	PacketData = {CFrame.Angles(0, 10, 0)}
 }) -- 22
 ```
+
+## Contributing
+Please see [CONTRIBUTING.md] for more information.

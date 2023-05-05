@@ -128,10 +128,24 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 	end
 end
 
+--- @class PacketSizeCounter
+--- The main class for calculating the size of packets.
 local PacketSizeCounter = {}
+
+--- @prop RemoteOverhead number
+--- @within PacketSizeCounter
+--- @readonly
+--- The byte overhead of a remote event, in bytes.
+
+--- @prop TypeOverhead number
+--- @within PacketSizeCounter
+--- @readonly
+--- The byte overhead of a type, in bytes.
+
 PacketSizeCounter.RemoteOverhead = REMOTE_OVERHEAD
 PacketSizeCounter.TypeOverhead = BYTE_OVERHEAD
 
+--- Returns the byte size of a packet from the given data. If `IgnoreRemoteOffset` is true, the remote overhead will not be added to the total.
 function PacketSizeCounter.GetPacketSize(CounterData: {
 	IgnoreRemoteOffset: boolean?,
 	PacketData: {any}
@@ -145,6 +159,7 @@ function PacketSizeCounter.GetPacketSize(CounterData: {
 
 	return Total
 end
+--- Returns the byte size of a single data object type. Supports most types.
 function PacketSizeCounter.GetDataByteSize(Data: any): number
 	return GetDataByteSize(Data, {})
 end

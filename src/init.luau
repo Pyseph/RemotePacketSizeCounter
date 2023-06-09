@@ -23,6 +23,7 @@ local COLOR3_BYTES = 3*Float32
 local VECTOR3_BYTES = 3*Float32
 
 local TypeByteSizes: {[string]: number} = {
+	["nil"] = 0,
 	EnumItem = Int32,
 	boolean = 1,
 	number = Float64,

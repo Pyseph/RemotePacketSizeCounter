@@ -35,5 +35,5 @@ The calculation for one spike can look as such:
 [MIT](https://choosealicense.com/licenses/mit/)
 
 ## Contact
-- Discord: Pyseph#0001
+- Discord: Pyseph
 - Roblox Developer Forum: https://devforum.roblox.com/u/pysephdev/summary

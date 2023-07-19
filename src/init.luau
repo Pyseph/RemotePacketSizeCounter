@@ -137,19 +137,31 @@ end
 --- The main class for calculating the size of packets.
 local PacketSizeCounter = {}
 
---- @prop RemoteOverhead number
+--- @prop BaseRemoteOverhead number
 --- @within PacketSizeCounter
 --- @readonly
 --- The byte overhead of a remote event, in bytes.
+PacketSizeCounter.BaseRemoteOverhead = BASE_REMOTE_OVERHEAD
+
+
+--- @prop RemoteFunctionOverhead number
+--- @within PacketSizeCounter
+--- @readonly
+--- The additional byte overhead of a remote function, in bytes.
+PacketSizeCounter.RemoteFunctionOverhead = REMOTEFUNCTION_OVERHEAD
+
+
+--- @prop ClientToServerOverhead number
+--- @within PacketSizeCounter
+--- @readonly
+--- The additional byte overhead of a client-to-server remote, in bytes.
+PacketSizeCounter.ClientToServerOverhead = CLIENT_TO_SERVER_OVERHEAD
+
 
 --- @prop TypeOverhead number
 --- @within PacketSizeCounter
 --- @readonly
 --- The byte overhead of a type, in bytes.
-
-PacketSizeCounter.BaseRemoteOverhead = BASE_REMOTE_OVERHEAD
-PacketSizeCounter.RemoteFunctionOverhead = REMOTEFUNCTION_OVERHEAD
-PacketSizeCounter.ClientToServerOverhead = CLIENT_TO_SERVER_OVERHEAD
 PacketSizeCounter.TypeOverhead = TYPE_OVERHEAD
 
 --- Returns the byte size of a packet from the given data. Remote overhead is automatically added, and is different based on the remote type and run context.

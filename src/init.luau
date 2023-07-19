@@ -1,6 +1,10 @@
 --!strict
-local REMOTE_OVERHEAD = 9
-local BYTE_OVERHEAD = 1
+
+local BASE_REMOTE_OVERHEAD = 9
+local REMOTEFUNCTION_OVERHEAD = 2
+local CLIENT_TO_SERVER_OVERHEAD = 5
+
+local TYPE_OVERHEAD = 1
 
 -- Byte sizes of different types of values
 local Float64 = 8
@@ -12,7 +16,7 @@ local Int8 = 1
 
 -- Vector3's are stored as 3 Float32s, which equates to 12 bytes. They have a 1-byte overhead
 -- for what's presumably type differentiation, so the informal calculation for datatypes is:
--- num_types*num_bytes_in_type + BYTE_OVERHEAD
+-- num_types*num_bytes_in_type + TYPE_OVERHEAD
 -- Example:
 -- Vector3: 3 float32s, 1 byte overhead: 3*4 + 1 = 13 bytes
 -- The structs of datatypes can be found below:
@@ -94,8 +98,8 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 				Index += 1
 			end
 
-			KeyTotal += GetDataByteSize(Key, AlreadyTraversed) + BYTE_OVERHEAD
-			ValueTotal += GetDataByteSize(Value, AlreadyTraversed) + BYTE_OVERHEAD
+			KeyTotal += GetDataByteSize(Key, AlreadyTraversed) + TYPE_OVERHEAD
+			ValueTotal += GetDataByteSize(Value, AlreadyTraversed) + TYPE_OVERHEAD
 		end
 
 		return 1 + (IsOrdered and #Data + ValueTotal or KeyTotal + ValueTotal)
@@ -143,19 +147,29 @@ local PacketSizeCounter = {}
 --- @readonly
 --- The byte overhead of a type, in bytes.
 
-PacketSizeCounter.RemoteOverhead = REMOTE_OVERHEAD
-PacketSizeCounter.TypeOverhead = BYTE_OVERHEAD
+PacketSizeCounter.BaseRemoteOverhead = BASE_REMOTE_OVERHEAD
+PacketSizeCounter.RemoteFunctionOverhead = REMOTEFUNCTION_OVERHEAD
+PacketSizeCounter.ClientToServerOverhead = CLIENT_TO_SERVER_OVERHEAD
+PacketSizeCounter.TypeOverhead = TYPE_OVERHEAD
 
---- Returns the byte size of a packet from the given data. If `IgnoreRemoteOffset` is true, the remote overhead will not be added to the total.
+--- Returns the byte size of a packet from the given data. Remote overhead is automatically added, and is different based on the remote type and run context.
 function PacketSizeCounter.GetPacketSize(CounterData: {
-	IgnoreRemoteOffset: boolean?,
+	RunContext: "Server" | "Client",
+	RemoteType: "RemoteEvent" | "RemoteFunction",
 	PacketData: {any}
 }): number
-	local Total = CounterData.IgnoreRemoteOffset and 0 or REMOTE_OVERHEAD
+	local Total = BASE_REMOTE_OVERHEAD
+	if CounterData.RemoteType == "RemoteFunction" then
+		Total += REMOTEFUNCTION_OVERHEAD
+	end
+	if CounterData.RunContext == "Client" then
+		Total += CLIENT_TO_SERVER_OVERHEAD
+	end
+
 	local AlreadyTraversed = {}
 
 	for _, Data in ipairs(CounterData.PacketData) do
-		Total += GetDataByteSize(Data, AlreadyTraversed) + BYTE_OVERHEAD
+		Total += GetDataByteSize(Data, AlreadyTraversed) + TYPE_OVERHEAD
 	end
 
 	return Total

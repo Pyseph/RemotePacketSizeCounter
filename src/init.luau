@@ -120,9 +120,9 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 			-- Axis-aligned CFrames skip sending rotation and are encoded as only 13 bytes
 			return 1 + VECTOR3_BYTES
 		else
-			-- 1 byte for the ID, 12 bytes for the position vector, and 8 bytes for the quaternion representation
-			--                         I'm assuming each quaternion axis is a Float16
-			return 1 + VECTOR3_BYTES + 4*Float16
+			-- 1 byte for the ID, 12 bytes for the position vector, and 6 bytes for the quaternion representation
+			--                         I'm assuming they send x,y,z quaternions and reconstruct w from `x*x + y*y + z*z + w*w = 1`.
+			return 1 + VECTOR3_BYTES + 3*Float16
 		end
 	elseif DataType == "NumberSequence" or DataType == "ColorSequence" then
 		local Total = 4

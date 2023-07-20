@@ -70,16 +70,18 @@ local CFrameSpecialCases = {
 	[CFrame.Angles(0, math.rad(90), math.rad(180))] 	= true,		[CFrame.Angles(0, math.rad(-90), math.rad(180))] 			= true,
 }
 
+-- https://en.wikipedia.org/wiki/Variable-length_quantity
+local function GetVLQSize(InitialSize: number, Length: number)
+	return math.max(math.ceil(math.log(Length + InitialSize, 128)), InitialSize)
+end
+
 local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boolean})
 	local DataType = typeof(Data)
 	if TypeByteSizes[DataType] then
 		return TypeByteSizes[DataType]
 	elseif DataType == "string" then
-		-- There isn't concrete information about the size of a string over the wire, but zeuxcg mentioned
-		-- that `string.pack("hhh", math.round(v.X), math.round(v.Y), math.round(v.Z))` should be around 8 bytes.
-		-- From this along with Tomarty's observations (https://devforum.roblox.com/t/ore-one-remote-event/569721/33),
-		-- we can assume that a string's byte size is #String + 2.
-		return #Data + 2
+		-- https://data-oriented-house.github.io/Squash/docs/binary/#strings
+		return GetVLQSize(1, #Data) + #Data
 	elseif DataType == "table" then
 		if AlreadyTraversed[Data] then
 			return 0
@@ -89,20 +91,22 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 		local KeyTotal = 0
 		local ValueTotal = 0
 
-		local Index = 1
-		local IsOrdered = true
-		for Key, Value in next, Data do
-			if Key ~= Index then
-				IsOrdered = false
-			else
-				Index += 1
-			end
+		local NumKeys = 1
+		local IsArray = Data[1] ~= nil
+ 		for Key, Value in next, Data do
+			NumKeys += 1
 
-			KeyTotal += GetDataByteSize(Key, AlreadyTraversed) + TYPE_OVERHEAD
+			if not IsArray then
+				KeyTotal += GetDataByteSize(Key, AlreadyTraversed) + TYPE_OVERHEAD
+			end
 			ValueTotal += GetDataByteSize(Value, AlreadyTraversed) + TYPE_OVERHEAD
 		end
 
-		return 1 + (IsOrdered and #Data + ValueTotal or KeyTotal + ValueTotal)
+		if IsArray then
+			return GetVLQSize(1, NumKeys) + ValueTotal
+		else
+			return GetVLQSize(1, NumKeys) + KeyTotal + ValueTotal
+		end
 	elseif DataType == "CFrame" then
 		local IsSpecialCase = false
 		for SpecialCase in next, CFrameSpecialCases do
@@ -188,7 +192,7 @@ function PacketSizeCounter.GetPacketSize(CounterData: {
 end
 --- Returns the byte size of a single data object type. Supports most types.
 function PacketSizeCounter.GetDataByteSize(Data: any): number
-	return GetDataByteSize(Data, {})
+	return GetDataByteSize(Data, {}) + TYPE_OVERHEAD
 end
 
 table.freeze(PacketSizeCounter)

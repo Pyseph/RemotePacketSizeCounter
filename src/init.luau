@@ -133,7 +133,7 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 
 		return Total
 	else
-		warn("Unsupported data type: " .. DataType)
+		warn("[PacketSizeCounter]: Unsupported data type: " .. DataType)
 		return 0
 	end
 end

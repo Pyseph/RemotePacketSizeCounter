@@ -79,9 +79,10 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 	local DataType = typeof(Data)
 	if TypeByteSizes[DataType] then
 		return TypeByteSizes[DataType]
-	elseif DataType == "string" then
+	elseif DataType == "string" or DataType == "buffer" then
 		-- https://data-oriented-house.github.io/Squash/docs/binary/#strings
-		return GetVLQSize(1, #Data) + #Data
+		local Length = DataType == "string" and #Data or buffer.len(Data)
+		return GetVLQSize(1, Length) + Length
 	elseif DataType == "table" then
 		if AlreadyTraversed[Data] then
 			return 0

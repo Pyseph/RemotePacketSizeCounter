@@ -1,5 +1,7 @@
 --!strict
 
+local BufferSize = require(script.BufferSize)
+
 local BASE_REMOTE_OVERHEAD = 9
 local REMOTEFUNCTION_OVERHEAD = 2
 local CLIENT_TO_SERVER_OVERHEAD = 5
@@ -75,22 +77,29 @@ local function GetVLQSize(InitialSize: number, Length: number)
 	return math.max(math.ceil(math.log(Length + InitialSize, 128)), InitialSize)
 end
 
-local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boolean})
+local function GetDataByteSizes(Data: any, AlreadyTraversed: {[{[any]: any}]: boolean}): (number, number, number)
 	local DataType = typeof(Data)
 	if TypeByteSizes[DataType] then
-		return TypeByteSizes[DataType]
-	elseif DataType == "string" or DataType == "buffer" then
+		local Size = TypeByteSizes[DataType]
+		return Size, Size, 0
+	elseif DataType == "string" then
 		-- https://data-oriented-house.github.io/Squash/docs/binary/#strings
-		local Length = DataType == "string" and #Data or buffer.len(Data)
-		return GetVLQSize(1, Length) + Length
+		local Size = GetVLQSize(1, #Data) + #Data
+		return Size, Size, 0
+	elseif DataType == "buffer" then
+		local Size, UncompressedSize, IsCompressed = BufferSize.Measure(Data)
+		return Size, UncompressedSize, if IsCompressed then 1 else 0
 	elseif DataType == "table" then
 		if AlreadyTraversed[Data] then
-			return 0
+			return 0, 0, 0
 		end
 		AlreadyTraversed[Data] = true
 
 		local KeyTotal = 0
 		local ValueTotal = 0
+		local UncompressedKeyTotal = 0
+		local UncompressedValueTotal = 0
+		local CompressedBufferCount = 0
 
 		local NumKeys = 1
 		local IsArray = Data[1] ~= nil
@@ -98,15 +107,26 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 			NumKeys += 1
 
 			if not IsArray then
-				KeyTotal += GetDataByteSize(Key, AlreadyTraversed) + TYPE_OVERHEAD
+				local KeySize, UncompressedKeySize, KeyCompressedBufferCount = GetDataByteSizes(Key, AlreadyTraversed)
+				KeyTotal += KeySize + TYPE_OVERHEAD
+				UncompressedKeyTotal += UncompressedKeySize + TYPE_OVERHEAD
+				CompressedBufferCount += KeyCompressedBufferCount
 			end
-			ValueTotal += GetDataByteSize(Value, AlreadyTraversed) + TYPE_OVERHEAD
+			local ValueSize, UncompressedValueSize, ValueCompressedBufferCount = GetDataByteSizes(Value, AlreadyTraversed)
+			ValueTotal += ValueSize + TYPE_OVERHEAD
+			UncompressedValueTotal += UncompressedValueSize + TYPE_OVERHEAD
+			CompressedBufferCount += ValueCompressedBufferCount
 		end
 
+		local LengthSize = GetVLQSize(1, NumKeys)
+
 		if IsArray then
-			return GetVLQSize(1, NumKeys) + ValueTotal
+			return LengthSize + ValueTotal, LengthSize + UncompressedValueTotal, CompressedBufferCount
 		else
-			return GetVLQSize(1, NumKeys) + KeyTotal + ValueTotal
+			return
+				LengthSize + KeyTotal + ValueTotal,
+				LengthSize + UncompressedKeyTotal + UncompressedValueTotal,
+				CompressedBufferCount
 		end
 	elseif DataType == "CFrame" then
 		local IsSpecialCase = false
@@ -119,24 +139,38 @@ local function GetDataByteSize(Data: any, AlreadyTraversed: {[{[any]: any}]: boo
 
 		if IsSpecialCase then
 			-- Axis-aligned CFrames skip sending rotation and are encoded as only 13 bytes
-			return 1 + VECTOR3_BYTES
+			local Size = 1 + VECTOR3_BYTES
+			return Size, Size, 0
 		else
 			-- 1 byte for the ID, 12 bytes for the position vector, and 6 bytes for the quaternion representation
 			--                         I'm assuming they send x,y,z quaternions and reconstruct w from `x*x + y*y + z*z + w*w = 1`.
-			return 1 + VECTOR3_BYTES + 3*Float16
+			local Size = 1 + VECTOR3_BYTES + 3*Float16
+			return Size, Size, 0
 		end
 	elseif DataType == "NumberSequence" or DataType == "ColorSequence" then
 		local Total = 4
+		local UncompressedTotal = 4
+		local CompressedBufferCount = 0
 		for _, Keypoint in next, Data.Keypoints do
-			Total += GetDataByteSize(Keypoint, AlreadyTraversed)
+			local Size, UncompressedSize, KeypointCompressedBufferCount = GetDataByteSizes(Keypoint, AlreadyTraversed)
+			Total += Size
+			UncompressedTotal += UncompressedSize
+			CompressedBufferCount += KeypointCompressedBufferCount
 		end
 
-		return Total
+		return Total, UncompressedTotal, CompressedBufferCount
 	else
 		warn("[PacketSizeCounter]: Unsupported data type: " .. DataType)
-		return 0
+		return 0, 0, 0
 	end
 end
+
+export type SizeDetails = {
+	Size: number,
+	UncompressedSize: number,
+	CompressionSavings: number,
+	CompressedBufferCount: number,
+}
 
 --- @class PacketSizeCounter
 --- The main class for calculating the size of packets.
@@ -169,8 +203,19 @@ PacketSizeCounter.ClientToServerOverhead = CLIENT_TO_SERVER_OVERHEAD
 --- The byte overhead of a type, in bytes.
 PacketSizeCounter.TypeOverhead = TYPE_OVERHEAD
 
---- Returns the byte size of a packet from the given data. Remote overhead is automatically added, and is different based on the remote type and run context.
-function PacketSizeCounter.GetPacketSize(CounterData: {
+--- @prop BufferCompressionThreshold number
+--- @within PacketSizeCounter
+--- @readonly
+--- The minimum buffer length at which Roblox applies transparent network compression.
+PacketSizeCounter.BufferCompressionThreshold = BufferSize.CompressionThreshold
+
+--- @prop BufferCompressionLevel number
+--- @within PacketSizeCounter
+--- @readonly
+--- The Zstandard compression level used to estimate compressed buffer sizes.
+PacketSizeCounter.BufferCompressionLevel = BufferSize.CompressionLevel
+
+local function GetBasePacketSize(CounterData: {
 	RunContext: "Server" | "Client",
 	RemoteType: "RemoteEvent" | "RemoteFunction",
 	PacketData: {any}
@@ -182,18 +227,60 @@ function PacketSizeCounter.GetPacketSize(CounterData: {
 	if CounterData.RunContext == "Client" then
 		Total += CLIENT_TO_SERVER_OVERHEAD
 	end
+	return Total
+end
 
+--- Returns estimated compressed and uncompressed byte sizes for a packet.
+function PacketSizeCounter.GetPacketSizeDetails(CounterData: {
+	RunContext: "Server" | "Client",
+	RemoteType: "RemoteEvent" | "RemoteFunction",
+	PacketData: {any}
+}): SizeDetails
+	local Total = GetBasePacketSize(CounterData)
+	local UncompressedTotal = Total
+	local CompressedBufferCount = 0
 	local AlreadyTraversed = {}
 
 	for _, Data in ipairs(CounterData.PacketData) do
-		Total += GetDataByteSize(Data, AlreadyTraversed) + TYPE_OVERHEAD
+		local Size, UncompressedSize, DataCompressedBufferCount = GetDataByteSizes(Data, AlreadyTraversed)
+		Total += Size + TYPE_OVERHEAD
+		UncompressedTotal += UncompressedSize + TYPE_OVERHEAD
+		CompressedBufferCount += DataCompressedBufferCount
 	end
 
-	return Total
+	return {
+		Size = Total,
+		UncompressedSize = UncompressedTotal,
+		CompressionSavings = UncompressedTotal - Total,
+		CompressedBufferCount = CompressedBufferCount,
+	}
+end
+
+--- Returns the byte size of a packet from the given data. Remote overhead is automatically added, and is different based on the remote type and run context.
+function PacketSizeCounter.GetPacketSize(CounterData: {
+	RunContext: "Server" | "Client",
+	RemoteType: "RemoteEvent" | "RemoteFunction",
+	PacketData: {any}
+}): number
+	return PacketSizeCounter.GetPacketSizeDetails(CounterData).Size
 end
 --- Returns the byte size of a single data object type. Supports most types.
 function PacketSizeCounter.GetDataByteSize(Data: any): number
-	return GetDataByteSize(Data, {}) + TYPE_OVERHEAD
+	local Size = GetDataByteSizes(Data, {})
+	return Size + TYPE_OVERHEAD
+end
+
+--- Returns estimated compressed and uncompressed byte sizes for a single data object.
+function PacketSizeCounter.GetDataByteSizeDetails(Data: any): SizeDetails
+	local Size, UncompressedSize, CompressedBufferCount = GetDataByteSizes(Data, {})
+	Size += TYPE_OVERHEAD
+	UncompressedSize += TYPE_OVERHEAD
+	return {
+		Size = Size,
+		UncompressedSize = UncompressedSize,
+		CompressionSavings = UncompressedSize - Size,
+		CompressedBufferCount = CompressedBufferCount,
+	}
 end
 
 table.freeze(PacketSizeCounter)
